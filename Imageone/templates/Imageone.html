@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Display Object Images</title>
+</head>
+
+<body>
+    <input type="file" id="bgInput" accept="image/*" onchange="loadImage('bg')">
+    <canvas id="canvas" width="600" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let bgImage = new Image();
+        let objectImages = [];
+        let objectPositions = [];
+        let selectedObjectIndex = null;
+
+        // Load background image
+        function loadImage(type) {
+            const input = document.getElementById('bgInput');
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    bgImage = img;
+                    drawImages();
+                }
+                img.src = e.target.result;
+            }
+
+            reader.readAsDataURL(input.files[0]);
+        }
+
+        // Load object images from folder
+        fetch('/get-object-images')
+            .then(response => response.json())
+            .then(data => {
+                data.image_urls.forEach((src, index) => {
+                    const img = new Image();
+                    img.src = src;
+
+                    img.onload = () => {
+                        objectImages.push(img);
+                        objectPositions.push({ x: 0, y: 0, width: 100, height: 100 });
+                        drawImages();
+                    };
+                });
+            })
+            .catch(error => console.error('Error:', error));
+
+        // Select object image by index
+        function selectObject(index) {
+            selectedObjectIndex = index;
+            drawImages();
+        }
+
+        // Event listener for keyboard input
+        window.addEventListener('keydown', function (e) {
+            if (objectImages.length === 0) return; // Ensure there are object images loaded
+
+            switch (e.key) {
+                case '1':
+                case '2':
+                case '3':
+                    selectObject(parseInt(e.key) - 1); // Subtract 1 to match array index
+                    break;
+                case 'ArrowUp':
+                case 'ArrowDown':
+                case 'ArrowLeft':
+                case 'ArrowRight':
+                case '+':
+                case '-':
+                    moveOrResizeObject(e.key);
+                    break;
+                default:
+                    break;
+            }
+        });
+
+        // Move or resize the selected object image
+        function moveOrResizeObject(key) {
+            if (selectedObjectIndex === null) return;
+
+            const pos = objectPositions[selectedObjectIndex];
+
+            switch (key) {
+                case 'ArrowUp':
+                    pos.y -= 5;
+                    break;
+                case 'ArrowDown':
+                    pos.y += 5;
+                    break;
+                case 'ArrowLeft':
+                    pos.x -= 5;
+                    break;
+                case 'ArrowRight':
+                    pos.x += 5;
+                    break;
+                case '+':
+                    pos.width += 5;
+                    pos.height += 5;
+                    break;
+                case '-':
+                    if (pos.width > 10 && pos.height > 10) {
+                        pos.width -= 5;
+                        pos.height -= 5;
+                    }
+                    break;
+                default:
+                    return;
+            }
+            drawImages();
+        }
+
+        function drawImages() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+
+            objectImages.forEach((image, index) => {
+                const pos = objectPositions[index];
+                ctx.drawImage(image, pos.x, pos.y, pos.width, pos.height);
+
+                if (index === selectedObjectIndex) {
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(pos.x, pos.y, pos.width, pos.height);
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>
